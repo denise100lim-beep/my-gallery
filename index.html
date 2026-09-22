@@ -630,12 +630,17 @@
     sculptureMesh = knot;
   }
 
-  function buildArtworks() {
-    const north = [], south = [];
-    artworks.forEach((art, i) => (i % 2 === 0 ? north : south).push(art));
-
-    placeOnWall(north, -RD / 2, 0);
-    placeOnWall(south, RD / 2, Math.PI);
+  function loadArtTextures() {
+    const loader = new THREE.TextureLoader();
+    loader.crossOrigin = 'anonymous';
+    artPlanes.forEach((f) => {
+      loader.load(f.art.img, (tex) => {
+        tex.encoding = THREE.sRGBEncoding;
+        f.mesh.material.map = tex;
+        f.mesh.material.color.set(0xffffff);
+        f.mesh.material.needsUpdate = true;
+      });
+    });
   }
 
   function loadArtTextures() {
