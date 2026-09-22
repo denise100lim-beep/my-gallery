@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Denise — Gallery</title>
+<meta name="description" content="A walkable 3D gallery of artwork by Denise." />
+
+<!--
+  HOW TO EDIT THIS SITE (no coding required, just find-and-replace):
+
+  1. Change your name: search for "Denise" (appears in the title and the
+     entry screen) and replace with your name.
+
+  2. Add / replace artwork: scroll down to "const artworks = [ ... ]"
+     near the bottom of the <script> tag. Each piece is one block:
+
+       {
+         img: "https://your-image-link.jpg",
+         title: "Title of the piece",
+         medium: "Watercolor",
+         year: "2026",
+         note: "A short line about it, or leave empty."
+       },
+
+     Duplicate a block, edit the details, done — it'll appear on the
+     gallery wall automatically, evenly spaced with the rest.
+     For "img": easiest is uploading your drawing to imgur.com (free,
+     no account needed) and pasting the direct image link here.
+
+  3. Room size: search for "ROOM SIZE" below if you have a LOT of
+     pieces and want a longer gallery.
+
+  NOTE: this uses 3D graphics loaded from a CDN, so it needs a live
+  connection — it will work once deployed on Vercel/GitHub Pages,
+  but may not render if you just double-click the file with no
+  internet, on some browsers.
+-->
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500&display=swap');
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: #14120f;
+    font-family: 'Inter', sans-serif;
+    color: #eeeae2;
+  }
+
+  canvas { display: block; touch-action: none; }
+
+  /* ---------- entry screen ---------- */
+
+  #enter {
+    position: fixed;
+    inset: 0;
+    background: #eeeae2;
+    color: #2a2620;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 24px;
+    z-index: 100;
+    transition: opacity 0.6s ease;
+  }
+
+  #enter.hidden { opacity: 0; pointer-events: none; }
+
+  #enter h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: clamp(32px, 6vw, 52px);
+    margin: 0 0 12px;
+  }
+
+  #enter p {
+    font-size: 15px;
+    color: rgba(42,38,32,0.65);
+    max-width: 40ch;
+    line-height: 1.6;
+    margin: 0 0 32px;
+  }
+
+  #enterBtn {
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    background: #2a2620;
+    color: #eeeae2;
+    border: none;
+    padding: 14px 30px;
+    cursor: pointer;
+    letter-spacing: 0.01em;
+  }
+
+  #enterBtn:hover { background: #47542f; }
+
+  .controls-hint {
+    margin-top: 28px;
+    font-size: 13px;
+    color: rgba(42,38,32,0.5);
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  /* ---------- HUD ---------- */
+
+  #hud {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 20;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+  }
+
+  #hud.visible { opacity: 1; }
+
+  #crosshair {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 6px;
+    height: 6px;
+    margin: -3px 0 0 -3px;
+    border-radius: 50%;
+    background: rgba(238,234,226,0.85);
+    box-shadow: 0 0 4px rgba(0,0,0,0.4);
+  }
+
+  #hoverLabel {
+    position: absolute;
+    bottom: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(20,18,14,0.72);
+    padding: 8px 16px;
+    font-size: 13px;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  #hoverLabel.show { opacity: 1; }
+
+  #topHint {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    color: rgba(238,234,226,0.55);
+    background: rgba(20,18,14,0.4);
+    padding: 6px 14px;
+  }
+
+  /* ---------- modal ---------- */
+
+  #modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(15,13,10,0.92);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+    z-index: 60;
+    pointer-events: auto;
+  }
+
+  #modal.open { display: flex; }
+
+  #modalInner { max-width: 720px; width: 100%; text-align: center; }
+
+  #modalImg {
+    max-width: 100%;
+    max-height: 62vh;
+    object-fit: contain;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  #modalTitle {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 22px;
+    margin: 20px 0 4px;
+  }
+
+  #modalMeta { font-size: 14px; color: rgba(238,234,226,0.6); margin: 0 0 6px; }
+  #modalNote { font-size: 13px; color: rgba(238,234,226,0.45); max-width: 50ch; margin: 8px auto 0; }
+
+  #modalClose {
+    margin-top: 26px;
+    background: none;
+    border: 1px solid rgba(238,234,226,0.3);
+    color: #eeeae2;
+    padding: 9px 20px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  #modalClose:hover { background: rgba(238,234,226,0.1); }
+
+  /* ---------- mobile controls ---------- */
+
+  #moveBtns {
+    position: fixed;
+    bottom: 22px;
+    left: 22px;
+    z-index: 30;
+    display: grid;
+    grid-template-columns: repeat(3, 46px);
+    grid-template-rows: repeat(2, 46px);
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+  }
+
+  #moveBtns.visible { opacity: 0.85; }
+
+  #moveBtns button {
+    font-size: 16px;
+    background: rgba(238,234,226,0.14);
+    border: 1px solid rgba(238,234,226,0.25);
+    color: #eeeae2;
+    border-radius: 6px;
+    touch-action: none;
+    user-select: none;
+  }
+
+  #moveBtns button:active { background: rgba(238,234,226,0.3); }
+
+  .b-up { grid-column: 2; grid-row: 1; }
+  .b-left { grid-column: 1; grid-row: 2; }
+  .b-down { grid-column: 2; grid-row: 2; }
+  .b-right { grid-column: 3; grid-row: 2; }
+
+  /* ---------- sit / stand ---------- */
+
+  #standBtn {
+    position: fixed;
+    left: 50%;
+    bottom: 34px;
+    transform: translateX(-50%);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    background: rgba(20,18,14,0.78);
+    color: #eeeae2;
+    border: 1px solid rgba(238,234,226,0.3);
+    padding: 11px 24px;
+    cursor: pointer;
+    z-index: 35;
+    display: none;
+  }
+
+  #standBtn.visible { display: block; }
+  #standBtn:hover { background: rgba(20,18,14,0.95); }
+
+  #viewToggle {
+    position: fixed;
+    bottom: 22px;
+    right: 22px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    background: rgba(20,18,14,0.6);
+    color: #eeeae2;
+    border: 1px solid rgba(238,234,226,0.25);
+    padding: 8px 16px;
+    cursor: pointer;
+    z-index: 35;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+  }
+
+  #viewToggle.visible { opacity: 1; }
+  #viewToggle:hover { background: rgba(20,18,14,0.85); }
+
+  #hud.third-person #crosshair,
+  #hud.third-person #hoverLabel { display: none; }
+</style>
+</head>
+<body>
+
+<div id="enter">
+  <h1>Denise</h1>
+  <p>Step inside a small room of drawings. Walk around, look up close, take your time.</p>
+  <button id="enterBtn">Enter the gallery</button>
+  <div class="controls-hint">
+    <span>WASD / arrows — walk</span>
+    <span>Drag — look around</span>
+    <span>Click a piece — view it</span>
+    <span>Click a bench — sit</span>
+  </div>
+</div>
+
+<div id="hud">
+  <div id="topHint">drag to look · walk with WASD · click a piece or bench</div>
+  <div id="crosshair"></div>
+  <div id="hoverLabel"></div>
+</div>
+
+<button id="standBtn">Stand up</button>
+<button id="viewToggle">View: First person</button>
+
+<div id="moveBtns">
+  <button class="b-up" data-k="up">▲</button>
+  <button class="b-left" data-k="left">◀</button>
+  <button class="b-down" data-k="down">▼</button>
+  <button class="b-right" data-k="right">▶</button>
+</div>
+
+<div id="modal">
+  <div id="modalInner">
+    <img id="modalImg" src="" alt="" />
+    <div id="modalTitle"></div>
+    <div id="modalMeta"></div>
+    <div id="modalNote"></div>
+    <button id="modalClose">Close</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+
+  // ---- YOUR ARTWORK GOES HERE ----
+  // Add, remove, or edit blocks freely. They'll be spaced evenly
+  // along the two long gallery walls in the order you list them.
+  const artworks = [
+    { img: "https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=900&q=80", title: "Morning study", medium: "Watercolor", year: "2026", note: "First page of a new sketchbook." },
+    { img: "https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=900&q=80", title: "Still life, oranges", medium: "Colored pencil", year: "2026", note: "" },
+    { img: "https://images.unsplash.com/photo-1547891654-e66ed7ebb968?w=900&q=80", title: "Untitled", medium: "Ink", year: "2025", note: "" },
+    { img: "https://images.unsplash.com/photo-1569172122301-bc5008bc09c5?w=900&q=80", title: "From the window", medium: "Gouache", year: "2025", note: "Painted from my apartment." },
+    { img: "https://images.unsplash.com/photo-1578926375605-eaf7559b1458?w=900&q=80", title: "Practice heads", medium: "Charcoal", year: "2025", note: "" },
+    { img: "https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=900&q=80", title: "Little abstract", medium: "Acrylic on paper", year: "2025", note: "" },
+    { img: "https://images.unsplash.com/photo-1531913764164-f85c52e6e654?w=900&q=80", title: "Botanical study", medium: "Ink and wash", year: "2025", note: "" },
+    { img: "https://images.unsplash.com/photo-1580136579312-94651dfd596d?w=900&q=80", title: "Quick figure sketch", medium: "Graphite", year: "2024", note: "" }
+  ];
+
+  // ---- ROOM SIZE ---- (increase RW if you add a lot more pieces)
+  const RW = 28, RD = 13, RH = 6;
+  const EYE = 1.7;
+  const WALL_MARGIN = 1.1;
+
+  let scene, camera, renderer, clock;
+  let yaw = 0, pitch = 0;
+  const pos = { x: 0, z: RD / 2 - 2.4 };
+  const keys = { fwd: false, back: false, left: false, right: false };
+  const frameMeshes = [];
+  const benchMeshes = [];
+  let sculptureMesh = null;
+  let dragging = false, lastX = 0, lastY = 0, dragDist = 0;
+  let sitting = false;
+  const SIT_EYE = 1.05;
+  let standPos = null, standYaw = 0, standPitch = 0;
+  let avatarGroup = null;
+  let viewMode = 'first';
+
+  function init() {
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1b1a17);
+    scene.fog = new THREE.Fog(0x1b1a17, 8, 26);
+
+    camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(pos.x, EYE, pos.z);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    document.body.appendChild(renderer.domElement);
+
+    buildRoom();
+    buildArtworks();
+    buildFeaturePaintings();
+    loadArtTextures();
+    buildLights();
+    buildDecor();
+    buildAvatar();
+
+    clock = new THREE.Clock();
+    animate();
+  }
+
+  function buildRoom() {
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0xe9e5db, roughness: 0.95 });
+    const floorMat = new THREE.MeshStandardMaterial({ map: makeFloorTexture(), roughness: 0.85 });
+    const ceilMat = new THREE.MeshStandardMaterial({ color: 0xd8d4c9, roughness: 1 });
+
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(RW, RD), floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    scene.add(floor);
+
+    const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(RW, RD), ceilMat);
+    ceiling.rotation.x = Math.PI / 2;
+    ceiling.position.y = RH;
+    scene.add(ceiling);
+
+    const north = new THREE.Mesh(new THREE.PlaneGeometry(RW, RH), wallMat);
+    north.position.set(0, RH / 2, -RD / 2);
+    scene.add(north);
+
+    const south = new THREE.Mesh(new THREE.PlaneGeometry(RW, RH), wallMat);
+    south.position.set(0, RH / 2, RD / 2);
+    south.rotation.y = Math.PI;
+    scene.add(south);
+
+    const east = new THREE.Mesh(new THREE.PlaneGeometry(RD, RH), wallMat);
+    east.position.set(RW / 2, RH / 2, 0);
+    east.rotation.y = -Math.PI / 2;
+    scene.add(east);
+
+    const west = new THREE.Mesh(new THREE.PlaneGeometry(RD, RH), wallMat);
+    west.position.set(-RW / 2, RH / 2, 0);
+    west.rotation.y = Math.PI / 2;
+    scene.add(west);
+
+    const trimMat = new THREE.MeshStandardMaterial({ color: 0xcac3b2, roughness: 0.9 });
+    [[0, -RD / 2, RW, 0], [0, RD / 2, RW, Math.PI], [RW / 2, 0, RD, -Math.PI / 2], [-RW / 2, 0, RD, Math.PI / 2]]
+      .forEach(([x, z, len, ry]) => {
+        const trim = new THREE.Mesh(new THREE.BoxGeometry(len, 0.15, 0.05), trimMat);
+        trim.position.set(x, 0.08, z);
+        trim.rotation.y = ry;
+        scene.add(trim);
+      });
+  }
+
+  function makeFloorTexture() {
+    const c = document.createElement('canvas');
+    c.width = c.height = 256;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#b7a888';
+    ctx.fillRect(0, 0, 256, 256);
+    for (let i = 0; i < 10; i++) {
+      ctx.fillStyle = i % 2 === 0 ? 'rgba(0,0,0,0.035)' : 'rgba(255,255,255,0.03)';
+      ctx.fillRect(0, i * 25.6, 256, 12);
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(RW / 3, RD / 3);
+    return tex;
+  }
+
+  function buildLights() {
+    scene.add(new THREE.AmbientLight(0xfff3e0, 0.55));
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x55503f, 0.35));
+    const key = new THREE.DirectionalLight(0xfff6e8, 0.4);
+    key.position.set(6, RH, 4);
+    scene.add(key);
+  }
+
+  function buildDecor() {
+    // rug down the center aisle
+    const rug = new THREE.Mesh(
+      new THREE.PlaneGeometry(RW - 8, 3.2),
+      new THREE.MeshStandardMaterial({ color: 0x5b4636, roughness: 1 })
+    );
+    rug.rotation.x = -Math.PI / 2;
+    rug.position.y = 0.011;
+    scene.add(rug);
+
+    const rugInner = new THREE.Mesh(
+      new THREE.PlaneGeometry(RW - 8.8, 2.5),
+      new THREE.MeshStandardMaterial({ color: 0x7d5e46, roughness: 1 })
+    );
+    rugInner.rotation.x = -Math.PI / 2;
+    rugInner.position.y = 0.016;
+    scene.add(rugInner);
+
+    // benches
+    function makeBench(x, z) {
+      const g = new THREE.Group();
+      const seat = new THREE.Mesh(
+        new THREE.BoxGeometry(1.6, 0.12, 0.5),
+        new THREE.MeshStandardMaterial({ color: 0x6b4f36, roughness: 0.7 })
+      );
+      seat.position.y = 0.45;
+      g.add(seat);
+      const legMat = new THREE.MeshStandardMaterial({ color: 0x2a2419, roughness: 0.6 });
+      [[-0.65, -0.18], [0.65, -0.18], [-0.65, 0.18], [0.65, 0.18]].forEach(([lx, lz]) => {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.45, 0.08), legMat);
+        leg.position.set(lx, 0.225, lz);
+        g.add(leg);
+      });
+      g.position.set(x, 0, z);
+      scene.add(g);
+      benchMeshes.push({ mesh: seat, x, z });
+    }
+    makeBench(-6, 0);
+    makeBench(6, 0);
+
+    // centerpiece sculpture, between the benches
+    buildSculpture(0, 0);
+
+    // potted plants in the corners
+    function makePlant(x, z) {
+      const g = new THREE.Group();
+      const pot = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.34, 0.26, 0.48, 16),
+        new THREE.MeshStandardMaterial({ color: 0xb5643a, roughness: 0.9 })
+      );
+      pot.position.y = 0.24;
+      g.add(pot);
+      const leafMat = new THREE.MeshStandardMaterial({ color: 0x3f5c34, roughness: 0.85 });
+      for (let i = 0; i < 7; i++) {
+        const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.95, 6), leafMat);
+        const ang = (i / 7) * Math.PI * 2;
+        leaf.position.set(Math.cos(ang) * 0.14, 0.95, Math.sin(ang) * 0.14);
+        leaf.rotation.z = Math.cos(ang) * 0.35;
+        leaf.rotation.x = Math.sin(ang) * 0.35;
+        g.add(leaf);
+      }
+      g.position.set(x, 0, z);
+      scene.add(g);
+    }
+    makePlant(-RW / 2 + 1.3, -RD / 2 + 1.3);
+    makePlant(RW / 2 - 1.3, -RD / 2 + 1.3);
+    makePlant(-RW / 2 + 1.3, RD / 2 - 1.3);
+    makePlant(RW / 2 - 1.3, RD / 2 - 1.3);
+
+    // ceiling track-light fixtures
+    const fixMat = new THREE.MeshStandardMaterial({ color: 0x161412, emissive: 0xfff1d6, emissiveIntensity: 0.7 });
+    for (let x = -RW / 2 + 3; x <= RW / 2 - 3; x += 5) {
+      const fix = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, 0.25), fixMat);
+      fix.position.set(x, RH - 0.1, 0);
+      scene.add(fix);
+      const pl = new THREE.PointLight(0xfff1d6, 0.3, 8);
+      pl.position.set(x, RH - 0.3, 0);
+      scene.add(pl);
+    }
+
+    // little name plaque by the entrance wall
+    const signCanvas = document.createElement('canvas');
+    signCanvas.width = 512; signCanvas.height = 128;
+    const sctx = signCanvas.getContext('2d');
+    sctx.fillStyle = '#eeeae2'; sctx.fillRect(0, 0, 512, 128);
+    sctx.fillStyle = '#2a2620';
+    sctx.font = '600 42px Georgia, serif';
+    sctx.textAlign = 'center'; sctx.textBaseline = 'middle';
+    sctx.fillText('DENISE', 256, 64);
+    const signTex = new THREE.CanvasTexture(signCanvas);
+    const sign = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.2, 0.55),
+      new THREE.MeshStandardMaterial({ map: signTex })
+    );
+    sign.position.set(0, 3.7, RD / 2 - 0.06);
+    sign.rotation.y = Math.PI;
+    scene.add(sign);
+  }
+
+  function buildAvatar() {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({ color: 0x2a2620, roughness: 0.6 });
+
+    [-0.1, 0.1].forEach((lx) => {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.85, 10), mat);
+      leg.position.set(lx, 0.425, 0);
+      g.add(leg);
+    });
+
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.62, 10), mat);
+    body.position.set(0, 1.16, 0);
+    g.add(body);
+
+    [-0.24, 0.24].forEach((ax) => {
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.6, 8), mat);
+      arm.position.set(ax, 1.28, 0);
+      arm.rotation.z = ax < 0 ? 0.22 : -0.22;
+      g.add(arm);
+    });
+
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.19, 16, 16), mat);
+    head.position.set(0, 1.66, 0);
+    g.add(head);
+
+    // ponytail, tied at the back of the head
+    const tailMat = new THREE.MeshStandardMaterial({ color: 0x47542f, roughness: 0.6 });
+    const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.018, 0.42, 8), tailMat);
+    tail.position.set(0, 1.6, 0.21);
+    tail.rotation.x = 1.0;
+    g.add(tail);
+
+    g.visible = false;
+    scene.add(g);
+    avatarGroup = g;
+  }
+
+  function setViewMode(mode) {
+    viewMode = mode;
+    document.getElementById('viewToggle').textContent =
+      mode === 'first' ? 'View: First person' : 'View: Third person';
+    document.getElementById('hud').classList.toggle('third-person', mode === 'third');
+  }
+  document.getElementById('viewToggle').addEventListener('click', () => {
+    setViewMode(viewMode === 'first' ? 'third' : 'first');
+  });
+
+  function buildSculpture(x, z) {
+    const g = new THREE.Group();
+    const pedestal = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.46, 0.52, 0.9, 24),
+      new THREE.MeshStandardMaterial({ color: 0xe6e0d4, roughness: 0.9 })
+    );
+    pedestal.position.y = 0.45;
+    g.add(pedestal);
+
+    const knot = new THREE.Mesh(
+      new THREE.TorusKnotGeometry(0.38, 0.13, 130, 16),
+      new THREE.MeshStandardMaterial({ color: 0xb08d57, metalness: 0.65, roughness: 0.3 })
+    );
+    knot.position.y = 0.9 + 0.5;
+    g.add(knot);
+
+    const spot = new THREE.PointLight(0xfff1d6, 0.8, 6.5);
+    spot.position.set(0, 3.1, 0.7);
+    g.add(spot);
+
+    g.position.set(x, 0, z);
+    scene.add(g);
+    sculptureMesh = knot;
+  }
+
+  function buildArtworks() {
+    const north = [], south = [];
+    artworks.forEach((art, i) => (i % 2 === 0 ? north : south).push(art));
+
+    placeOnWall(north, -RD / 2, 0);
+    placeOnWall(south, RD / 2, Math.PI);
+  }
+
+  function loadArtTextures() {
+    const loader = new THREE.TextureLoader();
+    loader.crossOrigin = 'anonymous';
+    frameMeshes.forEach((f) => {
+      loader.load(f.art.img, (tex) => {
+        tex.encoding = THREE.sRGBEncoding;
+        f.mesh.material.map = tex;
+        f.mesh.material.color.set(0xffffff);
+        f.mesh.material.needsUpdate = true;
+      });
+    });
+  }
+
+  // large feature paintings filling the two short (east/west) walls —
+  // classic public-domain Renaissance works, framed grand-gallery style
+  function buildFeaturePaintings() {
+    const items = [
+      {
+        wallX: RW / 2 - 0.07,
+        rotY: -Math.PI / 2,
+        aspect: 1.9,
+        art: {
+          img: "https://commons.wikimedia.org/wiki/Special:FilePath/Last_Supper_by_Leonardo_da_Vinci.jpg?width=1600",
+          title: "The Last Supper",
+          medium: "Leonardo da Vinci, c. 1495–1498 (public domain reproduction)",
+          year: "",
+          note: "On permanent loan to this wall from art history itself."
+        }
+      },
+      {
+        wallX: -RW / 2 + 0.07,
+        rotY: Math.PI / 2,
+        aspect: 1.62,
+        art: {
+          img: "https://commons.wikimedia.org/wiki/Special:FilePath/Birth_of_Venus_Botticelli.jpg?width=1600",
+          title: "The Birth of Venus",
+          medium: "Sandro Botticelli, c. 1484–1486 (public domain reproduction)",
+          year: "",
+          note: "On permanent loan to this wall from art history itself."
+        }
+      }
+    ];
+
+    items.forEach(({ wallX, rotY, aspect, art }) => {
+      const h = RH - 1.5;
+      const w = h * aspect;
+      const group = new THREE.Group();
+
+      const border = new THREE.Mesh(
+        new THREE.BoxGeometry(w + 0.34, h + 0.34, 0.16),
+        new THREE.MeshStandardMaterial({ color: 0xb08d3f, metalness: 0.45, roughness: 0.4 })
+      );
+      group.add(border);
+
+      const placeholderMat = new THREE.MeshStandardMaterial({ color: 0x9c9385, roughness: 0.8 });
+      const plane = new THREE.Mesh(new THREE.PlaneGeometry(w, h), placeholderMat);
+      plane.position.z = 0.1;
+      group.add(plane);
+
+      const spotTop = new THREE.PointLight(0xfff1d6, 1, 10);
+      spotTop.position.set(0, h / 2 + 1.2, 1.6);
+      group.add(spotTop);
+      const spotBottom = new THREE.PointLight(0xfff1d6, 0.5, 8);
+      spotBottom.position.set(0, -h / 2 - 0.2, 1.3);
+      group.add(spotBottom);
+
+      // plaque
+      const pCanvas = document.createElement('canvas');
+      pCanvas.width = 520; pCanvas.height = 160;
+      const pctx = pCanvas.getContext('2d');
+      pctx.fillStyle = '#eeeae2'; pctx.fillRect(0, 0, 520, 160);
+      pctx.fillStyle = '#2a2620';
+      pctx.textAlign = 'center';
+      pctx.font = '600 30px Georgia, serif';
+      pctx.fillText(art.title, 260, 52);
+      pctx.font = '15px Georgia, serif';
+      pctx.fillStyle = 'rgba(42,38,32,0.6)';
+      pctx.fillText(art.medium, 260, 88, 480);
+      pctx.font = 'italic 13px Georgia, serif';
+      pctx.fillStyle = 'rgba(42,38,32,0.4)';
+      pctx.fillText('click to read more', 260, 128);
+      const pTex = new THREE.CanvasTexture(pCanvas);
+      const placard = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.84, 0.26),
+        new THREE.MeshStandardMaterial({ map: pTex })
+      );
+      placard.position.set(0, -(h / 2) - 0.5, 0.11);
+      group.add(placard);
+      placard.userData.art = art;
+
+      group.position.set(wallX, RH / 2, 0);
+      group.rotation.y = rotY;
+      scene.add(group);
+
+      plane.userData.art = art;
+      frameMeshes.push({ mesh: plane, art });
+      frameMeshes.push({ mesh: placard, art });
+    });
+  }
+
+  function placeOnWall(list, wallZ, rotY) {
+    if (!list.length) return;
+    const frameW = 2.3, frameH = 2.9, frameY = 2.15;
+    const usable = RW - WALL_MARGIN * 2 - 2;
+    const step = list.length > 1 ? usable / (list.length - 1) : 0;
+    const startX = list.length > 1 ? -usable / 2 : 0;
+
+    list.forEach((art, i) => {
+      const x = startX + step * i;
+      const group = new THREE.Group();
+
+      const border = new THREE.Mesh(
+        new THREE.BoxGeometry(frameW + 0.16, frameH + 0.16, 0.08),
+        new THREE.MeshStandardMaterial({ color: 0x2a2419, roughness: 0.6 })
+      );
+      group.add(border);
+
+      const placeholderMat = new THREE.MeshStandardMaterial({ color: 0x9c9385, roughness: 0.8 });
+      const plane = new THREE.Mesh(new THREE.PlaneGeometry(frameW, frameH), placeholderMat);
+      plane.position.z = 0.05;
+      group.add(plane);
+
+      const spot = new THREE.PointLight(0xfff1d6, 0.55, 5.5);
+      spot.position.set(0, frameH / 2 + 0.9, 0.9);
+      group.add(spot);
+
+      // little museum placard below the frame
+      const pCanvas = document.createElement('canvas');
+      pCanvas.width = 420; pCanvas.height = 150;
+      const pctx = pCanvas.getContext('2d');
+      pctx.fillStyle = '#eeeae2'; pctx.fillRect(0, 0, 420, 150);
+      pctx.fillStyle = '#2a2620';
+      pctx.textAlign = 'center';
+      pctx.font = '600 27px Georgia, serif';
+      pctx.fillText(art.title, 210, 48);
+      pctx.font = '15px Georgia, serif';
+      pctx.fillStyle = 'rgba(42,38,32,0.6)';
+      pctx.fillText([art.medium, art.year].filter(Boolean).join('  ·  '), 210, 82);
+      pctx.font = 'italic 13px Georgia, serif';
+      pctx.fillStyle = 'rgba(42,38,32,0.4)';
+      pctx.fillText('click to read more', 210, 118);
+      const pTex = new THREE.CanvasTexture(pCanvas);
+      const placard = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.68, 0.24),
+        new THREE.MeshStandardMaterial({ map: pTex })
+      );
+      placard.position.set(0, -(frameH / 2) - 0.34, 0.06);
+      group.add(placard);
+      placard.userData.art = art;
+
+      group.position.set(x, frameY, wallZ + (rotY === 0 ? 0.05 : -0.05));
+      group.rotation.y = rotY;
+      scene.add(group);
+
+      plane.userData.art = art;
+      frameMeshes.push({ mesh: plane, art });
+      frameMeshes.push({ mesh: placard, art });
+    });
+  }
+
+  // ---- movement + look ----
+
+  function onKey(e, down) {
+    const k = e.code;
+    const isMoveKey = ['KeyW', 'ArrowUp', 'KeyS', 'ArrowDown', 'KeyA', 'ArrowLeft', 'KeyD', 'ArrowRight'].includes(k);
+    if (down && isMoveKey && sitting) standUp();
+    if (k === 'KeyW' || k === 'ArrowUp') keys.fwd = down;
+    if (k === 'KeyS' || k === 'ArrowDown') keys.back = down;
+    if (k === 'KeyA' || k === 'ArrowLeft') keys.left = down;
+    if (k === 'KeyD' || k === 'ArrowRight') keys.right = down;
+  }
+  window.addEventListener('keydown', (e) => onKey(e, true));
+  window.addEventListener('keyup', (e) => onKey(e, false));
+
+  function setupDrag(el) {
+    el.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('#moveBtns') || e.target.closest('#modal')) return;
+      dragging = true; dragDist = 0;
+      lastX = e.clientX; lastY = e.clientY;
+    });
+    window.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - lastX, dy = e.clientY - lastY;
+      dragDist += Math.abs(dx) + Math.abs(dy);
+      yaw -= dx * 0.0032;
+      pitch -= dy * 0.0032;
+      pitch = Math.max(-1.1, Math.min(1.1, pitch));
+      lastX = e.clientX; lastY = e.clientY;
+    });
+    window.addEventListener('pointerup', (e) => {
+      if (dragging && dragDist < 6) handleTap(e.clientX, e.clientY);
+      dragging = false;
+    });
+  }
+
+  function handleTap(x, y) {
+    const ndc = new THREE.Vector2((x / window.innerWidth) * 2 - 1, -(y / window.innerHeight) * 2 + 1);
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(ndc, camera);
+
+    const artHit = ray.intersectObjects(frameMeshes.map((f) => f.mesh))[0];
+    if (artHit) { openModal(artHit.object.userData.art); return; }
+
+    const benchHit = ray.intersectObjects(benchMeshes.map((b) => b.mesh))[0];
+    if (benchHit) {
+      if (sitting) { standUp(); return; }
+      const b = benchMeshes.find((bm) => bm.mesh === benchHit.object);
+      if (b) sitAt(b);
+    }
+  }
+
+  function sitAt(b) {
+    standPos = { x: pos.x, z: pos.z };
+    standYaw = yaw; standPitch = pitch;
+    pos.x = b.x; pos.z = b.z;
+    yaw = 0; pitch = 0;
+    sitting = true;
+    document.getElementById('standBtn').classList.add('visible');
+  }
+
+  function standUp() {
+    if (standPos) { pos.x = standPos.x; pos.z = standPos.z; }
+    sitting = false;
+    document.getElementById('standBtn').classList.remove('visible');
+  }
+  document.getElementById('standBtn').addEventListener('click', standUp);
+
+  document.querySelectorAll('#moveBtns button').forEach((btn) => {
+    const dir = btn.dataset.k;
+    const set = (v) => {
+      if (dir === 'up') keys.fwd = v;
+      if (dir === 'down') keys.back = v;
+      if (dir === 'left') keys.left = v;
+      if (dir === 'right') keys.right = v;
+    };
+    btn.addEventListener('pointerdown', (e) => { e.preventDefault(); set(true); });
+    btn.addEventListener('pointerup', () => set(false));
+    btn.addEventListener('pointerleave', () => set(false));
+  });
+
+  function updateMovement(dt) {
+    if (!sitting) {
+      const speed = 4.2 * dt;
+      const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
+      const rx = Math.cos(yaw), rz = -Math.sin(yaw);
+      let mx = 0, mz = 0;
+      if (keys.fwd) { mx += fx; mz += fz; }
+      if (keys.back) { mx -= fx; mz -= fz; }
+      if (keys.right) { mx += rx; mz += rz; }
+      if (keys.left) { mx -= rx; mz -= rz; }
+      const len = Math.hypot(mx, mz);
+      if (len > 0) {
+        pos.x += (mx / len) * speed;
+        pos.z += (mz / len) * speed;
+        pos.x = Math.max(-RW / 2 + WALL_MARGIN, Math.min(RW / 2 - WALL_MARGIN, pos.x));
+        pos.z = Math.max(-RD / 2 + WALL_MARGIN, Math.min(RD / 2 - WALL_MARGIN, pos.z));
+      }
+    }
+    if (avatarGroup) {
+      avatarGroup.position.set(pos.x, 0, pos.z);
+      avatarGroup.rotation.y = yaw;
+      avatarGroup.visible = viewMode === 'third';
+    }
+
+    if (viewMode === 'first') {
+      camera.position.set(pos.x, sitting ? SIT_EYE : EYE, pos.z);
+      camera.rotation.order = 'YXZ';
+      camera.rotation.set(pitch, yaw, 0);
+    } else {
+      const camDist = 4.2, camHeight = 2.6;
+      const bx = Math.sin(yaw), bz = Math.cos(yaw);
+      camera.position.set(pos.x + bx * camDist, camHeight, pos.z + bz * camDist);
+      camera.lookAt(pos.x, sitting ? 0.9 : 1.4, pos.z);
+    }
+  }
+
+  const hoverLabel = document.getElementById('hoverLabel');
+  function updateHover() {
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera({ x: 0, y: 0 }, camera);
+
+    const artHit = ray.intersectObjects(frameMeshes.map((f) => f.mesh))[0];
+    if (artHit && artHit.distance < 6.5) {
+      hoverLabel.textContent = artHit.object.userData.art.title;
+      hoverLabel.classList.add('show');
+      return;
+    }
+
+    const benchHit = ray.intersectObjects(benchMeshes.map((b) => b.mesh))[0];
+    if (benchHit && benchHit.distance < 5) {
+      hoverLabel.textContent = sitting ? 'Click to stand up' : 'Click to sit';
+      hoverLabel.classList.add('show');
+      return;
+    }
+
+    hoverLabel.classList.remove('show');
+  }
+
+  const modal = document.getElementById('modal');
+  function openModal(art) {
+    document.getElementById('modalImg').src = art.img;
+    document.getElementById('modalTitle').textContent = art.title;
+    document.getElementById('modalMeta').textContent = [art.medium, art.year].filter(Boolean).join(' — ');
+    document.getElementById('modalNote').textContent = art.note || '';
+    modal.classList.add('open');
+  }
+  document.getElementById('modalClose').addEventListener('click', () => modal.classList.remove('open'));
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('open'); });
+
+  function animate() {
+    requestAnimationFrame(animate);
+    const dt = Math.min(clock.getDelta(), 0.06);
+    updateMovement(dt);
+    updateHover();
+    if (sculptureMesh) sculptureMesh.rotation.y += dt * 0.15;
+    renderer.render(scene, camera);
+  }
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  document.getElementById('enterBtn').addEventListener('click', () => {
+    init();
+    setupDrag(renderer.domElement);
+    document.getElementById('enter').classList.add('hidden');
+    document.getElementById('hud').classList.add('visible');
+    document.getElementById('viewToggle').classList.add('visible');
+    if (window.matchMedia('(pointer: coarse)').matches) {
+      document.getElementById('moveBtns').classList.add('visible');
+    }
+  });
+})();
+</script>
+
+</body>
+</html>
