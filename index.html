@@ -337,7 +337,7 @@
   // Add, remove, or edit blocks freely. They'll be spaced evenly
   // along the two long gallery walls in the order you list them.
   const artworks = [
-    { img: "drawing1.jpg", title: "Morning smile", medium: "graphite", year: "24/8/2024", note: "a dupe that im quite proud of, the lead came off the pencil quite easily and flowed on the paper nicely" },
+    { img: "drawing1.jpg", title: "Morning smile", medium: "graphite", year: "24 august 2024", note: "a dupe that im quite proud off, the lead came off the pencil really easily and smoothly that made the drawing come together nicely." },
     { img: "https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=900&q=80", title: "Still life, oranges", medium: "Colored pencil", year: "2026", note: "" },
     { img: "https://images.unsplash.com/photo-1547891654-e66ed7ebb968?w=900&q=80", title: "Untitled", medium: "Ink", year: "2025", note: "" },
     { img: "https://images.unsplash.com/photo-1569172122301-bc5008bc09c5?w=900&q=80", title: "From the window", medium: "Gouache", year: "2025", note: "Painted from my apartment." },
@@ -764,27 +764,23 @@
       spot.position.set(0, frameH / 2 + 0.9, 0.9);
       group.add(spot);
 
-      // little museum placard below the frame
+      // little museum placard below the frame — just the title, kept clean and legible
       const pCanvas = document.createElement('canvas');
-      pCanvas.width = 420; pCanvas.height = 150;
+      pCanvas.width = 480; pCanvas.height = 130;
       const pctx = pCanvas.getContext('2d');
-      pctx.fillStyle = '#eeeae2'; pctx.fillRect(0, 0, 420, 150);
+      pctx.fillStyle = '#eeeae2'; pctx.fillRect(0, 0, 480, 130);
       pctx.fillStyle = '#2a2620';
       pctx.textAlign = 'center';
-      pctx.font = '600 27px Georgia, serif';
-      pctx.fillText(art.title, 210, 48);
-      pctx.font = '15px Georgia, serif';
-      pctx.fillStyle = 'rgba(42,38,32,0.6)';
-      pctx.fillText([art.medium, art.year].filter(Boolean).join('  ·  '), 210, 82);
-      pctx.font = 'italic 13px Georgia, serif';
-      pctx.fillStyle = 'rgba(42,38,32,0.4)';
-      pctx.fillText('click to read more', 210, 118);
+      pctx.textBaseline = 'middle';
+      pctx.font = '600 42px Georgia, serif';
+      pctx.fillText(art.title, 240, 65, 440);
       const pTex = new THREE.CanvasTexture(pCanvas);
+      pTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
       const placard = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.68, 0.24),
+        new THREE.PlaneGeometry(0.58, 0.16),
         new THREE.MeshStandardMaterial({ map: pTex })
       );
-      placard.position.set(0, -(frameH / 2) - 0.34, 0.06);
+      placard.position.set(0, -(frameH / 2) - 0.26, 0.06);
       group.add(placard);
       placard.userData.art = art;
 
