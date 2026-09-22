@@ -338,10 +338,10 @@
   // along the two long gallery walls in the order you list them.
   const artworks = [
     { img: "drawing1.jpg", title: "Morning smile", medium: "graphite", year: "24 august 2024", note: "a dupe that im quite proud off, the lead came off the pencil really easily and smoothly that made the drawing come together nicely." },
-    { img: "https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=900&q=80", title: "Still life, oranges", medium: "Colored pencil", year: "2026", note: "" },
-    { img: "https://images.unsplash.com/photo-1547891654-e66ed7ebb968?w=900&q=80", title: "Untitled", medium: "Ink", year: "2025", note: "" },
-    { img: "https://images.unsplash.com/photo-1569172122301-bc5008bc09c5?w=900&q=80", title: "From the window", medium: "Gouache", year: "2025", note: "Painted from my apartment." },
-    { img: "https://images.unsplash.com/photo-1578926375605-eaf7559b1458?w=900&q=80", title: "Practice heads", medium: "Charcoal", year: "2025", note: "" },
+    { img: "d2.jpg", title: "Still life, yada yada", medium: "graphite", year: "2024", note: "first drawing of a human that i didnt hate, garnered quite a number of likes to when i posted it on my story:D" },
+    { img: "d3.jpg", title: "my baby", medium: "BICCCC", year: "2023", note: "the drawing that started it all" },
+    { img: "d4.jpg", title: "beauty from within", medium: "pastels", year: "2024", note: "used the crayons that my best friend got me and the first piece i used it for. really proud of this" },
+    { img: "d5.jpg", title: "deary", medium: "graphite", year: "2024", note: "oh baby, dont we all just feel like this sometimes" },
     { img: "https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=900&q=80", title: "Little abstract", medium: "Acrylic on paper", year: "2025", note: "" },
     { img: "https://images.unsplash.com/photo-1531913764164-f85c52e6e654?w=900&q=80", title: "Botanical study", medium: "Ink and wash", year: "2025", note: "" },
     { img: "https://images.unsplash.com/photo-1580136579312-94651dfd596d?w=900&q=80", title: "Quick figure sketch", medium: "Graphite", year: "2024", note: "" }
@@ -357,6 +357,7 @@
   const pos = { x: 0, z: RD / 2 - 2.4 };
   const keys = { fwd: false, back: false, left: false, right: false };
   const frameMeshes = [];
+  const artPlanes = [];
   const benchMeshes = [];
   let sculptureMesh = null;
   let dragging = false, lastX = 0, lastY = 0, dragDist = 0;
@@ -528,15 +529,20 @@
     makePlant(-RW / 2 + 1.3, RD / 2 - 1.3);
     makePlant(RW / 2 - 1.3, RD / 2 - 1.3);
 
-    // ceiling track-light fixtures
+    // ceiling track-light fixtures — fixture meshes everywhere (cheap),
+    // but real lights only every other one (lights are the expensive part)
     const fixMat = new THREE.MeshStandardMaterial({ color: 0x161412, emissive: 0xfff1d6, emissiveIntensity: 0.7 });
+    let fixtureIndex = 0;
     for (let x = -RW / 2 + 3; x <= RW / 2 - 3; x += 5) {
       const fix = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, 0.25), fixMat);
       fix.position.set(x, RH - 0.1, 0);
       scene.add(fix);
-      const pl = new THREE.PointLight(0xfff1d6, 0.3, 8);
-      pl.position.set(x, RH - 0.3, 0);
-      scene.add(pl);
+      if (fixtureIndex % 2 === 0) {
+        const pl = new THREE.PointLight(0xfff1d6, 0.4, 9);
+        pl.position.set(x, RH - 0.3, 0);
+        scene.add(pl);
+      }
+      fixtureIndex++;
     }
 
     // little name plaque by the entrance wall
@@ -630,23 +636,18 @@
     sculptureMesh = knot;
   }
 
-  function loadArtTextures() {
-    const loader = new THREE.TextureLoader();
-    loader.crossOrigin = 'anonymous';
-    artPlanes.forEach((f) => {
-      loader.load(f.art.img, (tex) => {
-        tex.encoding = THREE.sRGBEncoding;
-        f.mesh.material.map = tex;
-        f.mesh.material.color.set(0xffffff);
-        f.mesh.material.needsUpdate = true;
-      });
-    });
+  function buildArtworks() {
+    const north = [], south = [];
+    artworks.forEach((art, i) => (i % 2 === 0 ? north : south).push(art));
+
+    placeOnWall(north, -RD / 2, 0);
+    placeOnWall(south, RD / 2, Math.PI);
   }
 
   function loadArtTextures() {
     const loader = new THREE.TextureLoader();
     loader.crossOrigin = 'anonymous';
-    frameMeshes.forEach((f) => {
+    artPlanes.forEach((f) => {
       loader.load(f.art.img, (tex) => {
         tex.encoding = THREE.sRGBEncoding;
         f.mesh.material.map = tex;
@@ -702,12 +703,9 @@
       plane.position.z = 0.1;
       group.add(plane);
 
-      const spotTop = new THREE.PointLight(0xfff1d6, 1, 10);
+      const spotTop = new THREE.PointLight(0xfff1d6, 1.1, 11);
       spotTop.position.set(0, h / 2 + 1.2, 1.6);
       group.add(spotTop);
-      const spotBottom = new THREE.PointLight(0xfff1d6, 0.5, 8);
-      spotBottom.position.set(0, -h / 2 - 0.2, 1.3);
-      group.add(spotBottom);
 
       // plaque
       const pCanvas = document.createElement('canvas');
@@ -739,6 +737,7 @@
 
       plane.userData.art = art;
       frameMeshes.push({ mesh: plane, art });
+      artPlanes.push({ mesh: plane, art });
       frameMeshes.push({ mesh: placard, art });
     });
   }
@@ -764,10 +763,6 @@
       const plane = new THREE.Mesh(new THREE.PlaneGeometry(frameW, frameH), placeholderMat);
       plane.position.z = 0.05;
       group.add(plane);
-
-      const spot = new THREE.PointLight(0xfff1d6, 0.55, 5.5);
-      spot.position.set(0, frameH / 2 + 0.9, 0.9);
-      group.add(spot);
 
       // little museum placard below the frame — just the title, kept clean and legible
       const pCanvas = document.createElement('canvas');
@@ -795,6 +790,7 @@
 
       plane.userData.art = art;
       frameMeshes.push({ mesh: plane, art });
+      artPlanes.push({ mesh: plane, art });
       frameMeshes.push({ mesh: placard, art });
     });
   }
