@@ -12,21 +12,10 @@
   1. Change your name: search for "Denise" (appears in the title and the
      entry screen) and replace with your name.
 
-  2. Add / replace artwork: scroll down to "const artworks = [ ... ]"
-     near the bottom of the <script> tag. Each piece is one block:
-
-       {
-         img: "https://your-image-link.jpg",
-         title: "Title of the piece",
-         medium: "Watercolor",
-         year: "2026",
-         note: "A short line about it, or leave empty."
-       },
-
-     Duplicate a block, edit the details, done — it'll appear on the
-     gallery wall automatically, evenly spaced with the rest.
-     For "img": easiest is uploading your drawing to imgur.com (free,
-     no account needed) and pasting the direct image link here.
+  2. Add / replace your art and projects: open the file works.js (it sits
+     next to this one). Every drawing and every project is one line there.
+     You do NOT need to edit this file (index.html) for that, so updating
+     this file never wipes your content.
 
   3. Room size: search for "ROOM SIZE" below if you have a LOT of
      pieces and want a longer gallery.
@@ -287,6 +276,18 @@
 
   #hud.third-person #crosshair,
   #hud.third-person #hoverLabel { display: none; }
+
+  #modalLink {
+    display: none;
+    margin-top: 18px;
+    font-size: 13px;
+    color: #eeeae2;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(238,234,226,0.5);
+    padding-bottom: 2px;
+  }
+
+  #modalLink:hover { border-color: #eeeae2; }
 </style>
 </head>
 <body>
@@ -325,32 +326,84 @@
     <div id="modalTitle"></div>
     <div id="modalMeta"></div>
     <div id="modalNote"></div>
+    <div><a id="modalLink" href="#" target="_blank" rel="noopener"></a></div>
     <button id="modalClose">Close</button>
   </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="works.js"></script>
 <script>
 (function () {
 
-  // ---- YOUR ARTWORK GOES HERE ----
-  // Add, remove, or edit blocks freely. They'll be spaced evenly
-  // along the two long gallery walls in the order you list them.
-  const artworks = [
+  // ---- CONTENT ----
+  // Your art and projects live in works.js, next to this file. If that file
+  // is missing, the built-in examples below are shown instead.
+  const DATA = window.GALLERY || {};
+
+  const DEFAULT_ARTWORKS = [
     { img: "drawing1.jpg", title: "Morning smile", medium: "graphite", year: "24 august 2024", note: "a dupe that im quite proud off, the lead came off the pencil really easily and smoothly that made the drawing come together nicely." },
-    { img: "d2.jpg", title: "Still life, yada yada", medium: "graphite", year: "2024", note: "first drawing of a human that i didnt hate, garnered quite a number of likes to when i posted it on my story:D" },
-    { img: "d3.jpg", title: "my baby", medium: "BICCCC", year: "2023", note: "the drawing that started it all" },
-    { img: "d4.jpg", title: "beauty from within", medium: "pastels", year: "2024", note: "used the crayons that my best friend got me and the first piece i used it for. really proud of this" },
-    { img: "d5.jpg", title: "deary", medium: "graphite", year: "2024", note: "oh baby, dont we all just feel like this sometimes" },
-    { img: "orange_moon.jpg", title: "orange moon", medium: "oil pastels", year: "2026", note: "been awhile since i used the oil pastels that my bff bought me to draw something im so happy with" },
+    { img: "https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=900&q=80", title: "Still life, oranges", medium: "Colored pencil", year: "2026", note: "" },
+    { img: "https://images.unsplash.com/photo-1547891654-e66ed7ebb968?w=900&q=80", title: "Untitled", medium: "Ink", year: "2025", note: "" },
+    { img: "https://images.unsplash.com/photo-1569172122301-bc5008bc09c5?w=900&q=80", title: "From the window", medium: "Gouache", year: "2025", note: "Painted from my apartment." },
+    { img: "https://images.unsplash.com/photo-1578926375605-eaf7559b1458?w=900&q=80", title: "Practice heads", medium: "Charcoal", year: "2025", note: "" },
+    { img: "https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=900&q=80", title: "Little abstract", medium: "Acrylic on paper", year: "2025", note: "" },
     { img: "https://images.unsplash.com/photo-1531913764164-f85c52e6e654?w=900&q=80", title: "Botanical study", medium: "Ink and wash", year: "2025", note: "" },
     { img: "https://images.unsplash.com/photo-1580136579312-94651dfd596d?w=900&q=80", title: "Quick figure sketch", medium: "Graphite", year: "2024", note: "" }
   ];
+
+  const DEFAULT_PROJECTS = [
+    { img: "", title: "Poster campaign", medium: "Poster", year: "2026", note: "Describe the brief, your role and what you learned." },
+    { img: "", title: "Brochure design", medium: "Print publication", year: "2026", note: "" },
+    { img: "", title: "Magazine spread", medium: "Editorial layout", year: "2026", note: "" },
+    { img: "", title: "Social media pack", medium: "Digital marketing", year: "2026", note: "" },
+    { img: "", title: "Brand identity", medium: "Logo and guidelines", year: "2026", note: "" }
+  ];
+
+  // a pretty stand-in image for any piece that has no picture yet
+  function placeholderCanvas(title, hue, sub) {
+    const c = document.createElement('canvas');
+    c.width = 640; c.height = 800;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = 'hsl(' + hue + ', 28%, 84%)';
+    ctx.fillRect(0, 0, 640, 800);
+    ctx.strokeStyle = 'hsl(' + hue + ', 22%, 60%)';
+    ctx.lineWidth = 6;
+    ctx.strokeRect(36, 36, 568, 728);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'hsl(' + hue + ', 30%, 28%)';
+    ctx.font = '600 46px Georgia, serif';
+    ctx.fillText(title || 'Untitled', 320, 380, 500);
+    ctx.fillStyle = 'hsl(' + hue + ', 20%, 40%)';
+    ctx.font = '22px Georgia, serif';
+    ctx.fillText(sub || 'image coming soon', 320, 450, 500);
+    return c;
+  }
+
+  function withPlaceholders(list, hue0) {
+    return list.map((a, i) => {
+      if (a.img) return a;
+      const copy = Object.assign({}, a);
+      copy.img = placeholderCanvas(a.title, (hue0 + i * 47) % 360).toDataURL('image/jpeg', 0.85);
+      return copy;
+    });
+  }
+
+  const artworks = withPlaceholders(DATA.artworks || DEFAULT_ARTWORKS, 20);
+  const projects = withPlaceholders(DATA.projects || DEFAULT_PROJECTS, 160);
 
   // ---- ROOM SIZE ---- (increase RW if you add a lot more pieces)
   const RW = 28, RD = 13, RH = 6;
   const EYE = 1.7;
   const WALL_MARGIN = 1.1;
+
+  // ---- PROJECTS ROOM (through the doorway in the far wall) ----
+  const PW = 24, PD = 12;            // its width and depth (make bigger for more projects)
+  const DOOR_W = 3.4, DOOR_H = 3.8;  // doorway size
+  const PZ_BACK = -RD / 2 - PD;      // z of the projects room's far wall
+  const PZ_MID = -RD / 2 - PD / 2;   // z of its middle
+  let addBench = null, addPlant = null;
 
   let scene, camera, renderer, clock;
   let yaw = 0, pitch = 0;
@@ -370,7 +423,7 @@
   function init() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x1b1a17);
-    scene.fog = new THREE.Fog(0x1b1a17, 8, 26);
+    scene.fog = new THREE.Fog(0x1b1a17, 12, 44);
 
     camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 100);
     camera.position.set(pos.x, EYE, pos.z);
@@ -384,9 +437,10 @@
     buildRoom();
     buildArtworks();
     buildFeaturePaintings();
-    loadArtTextures();
     buildLights();
     buildDecor();
+    buildProjectsRoom();
+    loadArtTextures();
     buildAvatar();
 
     clock = new THREE.Clock();
@@ -407,9 +461,27 @@
     ceiling.position.y = RH;
     scene.add(ceiling);
 
-    const north = new THREE.Mesh(new THREE.PlaneGeometry(RW, RH), wallMat);
-    north.position.set(0, RH / 2, -RD / 2);
-    scene.add(north);
+    // north wall, with a doorway in the middle that leads to the projects room
+    const sideW = (RW - DOOR_W) / 2;
+    [-1, 1].forEach((sd) => {
+      const part = new THREE.Mesh(new THREE.PlaneGeometry(sideW, RH), wallMat);
+      part.position.set(sd * (DOOR_W / 2 + sideW / 2), RH / 2, -RD / 2);
+      scene.add(part);
+    });
+    const lintel = new THREE.Mesh(new THREE.PlaneGeometry(DOOR_W, RH - DOOR_H), wallMat);
+    lintel.position.set(0, DOOR_H + (RH - DOOR_H) / 2, -RD / 2);
+    scene.add(lintel);
+
+    // door frame (gives the opening some thickness)
+    const jambMat = new THREE.MeshStandardMaterial({ color: 0xb9b19f, roughness: 0.85 });
+    [-1, 1].forEach((sd) => {
+      const jamb = new THREE.Mesh(new THREE.BoxGeometry(0.22, DOOR_H, 0.5), jambMat);
+      jamb.position.set(sd * (DOOR_W / 2 + 0.11), DOOR_H / 2, -RD / 2);
+      scene.add(jamb);
+    });
+    const doorHead = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W + 0.44, 0.22, 0.5), jambMat);
+    doorHead.position.set(0, DOOR_H + 0.11, -RD / 2);
+    scene.add(doorHead);
 
     const south = new THREE.Mesh(new THREE.PlaneGeometry(RW, RH), wallMat);
     south.position.set(0, RH / 2, RD / 2);
@@ -427,7 +499,7 @@
     scene.add(west);
 
     const trimMat = new THREE.MeshStandardMaterial({ color: 0xcac3b2, roughness: 0.9 });
-    [[0, -RD / 2, RW, 0], [0, RD / 2, RW, Math.PI], [RW / 2, 0, RD, -Math.PI / 2], [-RW / 2, 0, RD, Math.PI / 2]]
+    [[-(DOOR_W / 2 + sideW / 2), -RD / 2, sideW, 0], [DOOR_W / 2 + sideW / 2, -RD / 2, sideW, 0], [0, RD / 2, RW, Math.PI], [RW / 2, 0, RD, -Math.PI / 2], [-RW / 2, 0, RD, Math.PI / 2]]
       .forEach(([x, z, len, ry]) => {
         const trim = new THREE.Mesh(new THREE.BoxGeometry(len, 0.15, 0.05), trimMat);
         trim.position.set(x, 0.08, z);
@@ -436,11 +508,11 @@
       });
   }
 
-  function makeFloorTexture() {
+  function makeFloorTexture(base, repX, repY) {
     const c = document.createElement('canvas');
     c.width = c.height = 256;
     const ctx = c.getContext('2d');
-    ctx.fillStyle = '#b7a888';
+    ctx.fillStyle = base || '#b7a888';
     ctx.fillRect(0, 0, 256, 256);
     for (let i = 0; i < 10; i++) {
       ctx.fillStyle = i % 2 === 0 ? 'rgba(0,0,0,0.035)' : 'rgba(255,255,255,0.03)';
@@ -448,7 +520,7 @@
     }
     const tex = new THREE.CanvasTexture(c);
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(RW / 3, RD / 3);
+    tex.repeat.set(repX || RW / 3, repY || RD / 3);
     return tex;
   }
 
@@ -497,6 +569,7 @@
       scene.add(g);
       benchMeshes.push({ mesh: seat, x, z });
     }
+    addBench = makeBench;
     makeBench(-6, 0);
     makeBench(6, 0);
 
@@ -524,6 +597,7 @@
       g.position.set(x, 0, z);
       scene.add(g);
     }
+    addPlant = makePlant;
     makePlant(-RW / 2 + 1.3, -RD / 2 + 1.3);
     makePlant(RW / 2 - 1.3, -RD / 2 + 1.3);
     makePlant(-RW / 2 + 1.3, RD / 2 - 1.3);
@@ -640,20 +714,49 @@
     const north = [], south = [];
     artworks.forEach((art, i) => (i % 2 === 0 ? north : south).push(art));
 
-    placeOnWall(north, -RD / 2, 0);
+    placeOnWall(north, -RD / 2, 0, DOOR_W / 2 + 1.8);
     placeOnWall(south, RD / 2, Math.PI);
+  }
+
+  function fitBox(aspect, maxW, maxH) {
+    let w = maxW, h = maxW / aspect;
+    if (h > maxH) { h = maxH; w = maxH * aspect; }
+    return { w, h };
+  }
+
+  function applyTexture(f, tex) {
+    tex.encoding = THREE.sRGBEncoding;
+    f.mesh.material.map = tex;
+    f.mesh.material.color.set(0xffffff);
+    f.mesh.material.needsUpdate = true;
+
+    // each frame resizes to match its own drawing's proportions (no more squashing)
+    if (f.dynamicFit && tex.image && tex.image.width && tex.image.height) {
+      const fit = fitBox(tex.image.width / tex.image.height, f.maxW, f.maxH);
+      f.mesh.geometry.dispose();
+      f.mesh.geometry = new THREE.PlaneGeometry(fit.w, fit.h);
+      if (f.border) {
+        f.border.geometry.dispose();
+        f.border.geometry = new THREE.BoxGeometry(fit.w + 0.16, fit.h + 0.16, 0.08);
+      }
+      if (f.placard) f.placard.position.y = -(fit.h / 2) - 0.26;
+    }
   }
 
   function loadArtTextures() {
     const loader = new THREE.TextureLoader();
     loader.crossOrigin = 'anonymous';
     artPlanes.forEach((f) => {
-      loader.load(f.art.img, (tex) => {
-        tex.encoding = THREE.sRGBEncoding;
-        f.mesh.material.map = tex;
-        f.mesh.material.color.set(0xffffff);
-        f.mesh.material.needsUpdate = true;
-      });
+      loader.load(
+        f.art.img,
+        (tex) => applyTexture(f, tex),
+        undefined,
+        () => {
+          // picture didn't load (wrong filename?): show a labelled stand-in instead of a blank frame
+          if (!f.dynamicFit) return;
+          applyTexture(f, new THREE.CanvasTexture(placeholderCanvas(f.art.title, 12, 'image not found')));
+        }
+      );
     });
   }
 
@@ -742,57 +845,217 @@
     });
   }
 
-  function placeOnWall(list, wallZ, rotY) {
+  // builds one framed piece (frame + picture + title placard) and registers it for clicking and picture loading
+  function makeFrame(art, boxW, boxH) {
+    const group = new THREE.Group();
+
+    const border = new THREE.Mesh(
+      new THREE.BoxGeometry(boxW + 0.16, boxH + 0.16, 0.08),
+      new THREE.MeshStandardMaterial({ color: 0x2a2419, roughness: 0.6 })
+    );
+    group.add(border);
+
+    const placeholderMat = new THREE.MeshStandardMaterial({ color: 0x9c9385, roughness: 0.8 });
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(boxW, boxH), placeholderMat);
+    plane.position.z = 0.05;
+    group.add(plane);
+
+    // little museum placard below the frame: just the title
+    const pCanvas = document.createElement('canvas');
+    pCanvas.width = 480; pCanvas.height = 130;
+    const pctx = pCanvas.getContext('2d');
+    pctx.fillStyle = '#eeeae2'; pctx.fillRect(0, 0, 480, 130);
+    pctx.fillStyle = '#2a2620';
+    pctx.textAlign = 'center';
+    pctx.textBaseline = 'middle';
+    pctx.font = '600 42px Georgia, serif';
+    pctx.fillText(art.title, 240, 65, 440);
+    const pTex = new THREE.CanvasTexture(pCanvas);
+    pTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    const placard = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.58, 0.16),
+      new THREE.MeshStandardMaterial({ map: pTex })
+    );
+    placard.position.set(0, -(boxH / 2) - 0.26, 0.06);
+    group.add(placard);
+
+    plane.userData.art = art;
+    placard.userData.art = art;
+    frameMeshes.push({ mesh: plane, art });
+    artPlanes.push({ mesh: plane, art, border, placard, maxW: boxW, maxH: boxH, dynamicFit: true });
+    frameMeshes.push({ mesh: placard, art });
+    return group;
+  }
+
+  // x positions for n frames along the main room's long walls (optionally keeping a doorway clear in the middle)
+  function wallSlots(n, gapHalf) {
+    const usable = RW - WALL_MARGIN * 2 - 2;
+    const step = n > 1 ? usable / (n - 1) : 0;
+    let xs = [];
+    for (let i = 0; i < n; i++) xs.push(n > 1 ? -usable / 2 + step * i : 0);
+    if (gapHalf && xs.some((x) => Math.abs(x) < gapHalf)) {
+      const span = usable - 2 * gapHalf;
+      const st = n > 1 ? span / (n - 1) : 0;
+      xs = [];
+      for (let i = 0; i < n; i++) {
+        const q = n > 1 ? -span / 2 + st * i : 0;
+        xs.push(q < 0 ? q - gapHalf : q + gapHalf);
+      }
+    }
+    return xs;
+  }
+
+  function placeOnWall(list, wallZ, rotY, gapHalf) {
     if (!list.length) return;
     const frameW = 2.3, frameH = 2.9, frameY = 2.15;
-    const usable = RW - WALL_MARGIN * 2 - 2;
-    const step = list.length > 1 ? usable / (list.length - 1) : 0;
-    const startX = list.length > 1 ? -usable / 2 : 0;
+    const xs = wallSlots(list.length, gapHalf);
 
     list.forEach((art, i) => {
-      const x = startX + step * i;
-      const group = new THREE.Group();
-
-      const border = new THREE.Mesh(
-        new THREE.BoxGeometry(frameW + 0.16, frameH + 0.16, 0.08),
-        new THREE.MeshStandardMaterial({ color: 0x2a2419, roughness: 0.6 })
-      );
-      group.add(border);
-
-      const placeholderMat = new THREE.MeshStandardMaterial({ color: 0x9c9385, roughness: 0.8 });
-      const plane = new THREE.Mesh(new THREE.PlaneGeometry(frameW, frameH), placeholderMat);
-      plane.position.z = 0.05;
-      group.add(plane);
-
-      // little museum placard below the frame — just the title, kept clean and legible
-      const pCanvas = document.createElement('canvas');
-      pCanvas.width = 480; pCanvas.height = 130;
-      const pctx = pCanvas.getContext('2d');
-      pctx.fillStyle = '#eeeae2'; pctx.fillRect(0, 0, 480, 130);
-      pctx.fillStyle = '#2a2620';
-      pctx.textAlign = 'center';
-      pctx.textBaseline = 'middle';
-      pctx.font = '600 42px Georgia, serif';
-      pctx.fillText(art.title, 240, 65, 440);
-      const pTex = new THREE.CanvasTexture(pCanvas);
-      pTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-      const placard = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.58, 0.16),
-        new THREE.MeshStandardMaterial({ map: pTex })
-      );
-      placard.position.set(0, -(frameH / 2) - 0.26, 0.06);
-      group.add(placard);
-      placard.userData.art = art;
-
-      group.position.set(x, frameY, wallZ + (rotY === 0 ? 0.05 : -0.05));
+      const group = makeFrame(art, frameW, frameH);
+      group.position.set(xs[i], frameY, wallZ + (rotY === 0 ? 0.05 : -0.05));
       group.rotation.y = rotY;
       scene.add(group);
-
-      plane.userData.art = art;
-      frameMeshes.push({ mesh: plane, art });
-      artPlanes.push({ mesh: plane, art });
-      frameMeshes.push({ mesh: placard, art });
     });
+  }
+
+  // hang pieces along any wall: (cx, cz) = middle of the wall, rotY = which way it faces, length = wall length
+  function placeAlongWall(list, cx, cz, rotY, length) {
+    if (!list.length) return;
+    const boxW = 2.4, boxH = 3.1, frameY = 2.2;
+    const usable = length - 4.2;
+    const step = list.length > 1 ? usable / (list.length - 1) : 0;
+    const sn = Math.sin(rotY), cs = Math.cos(rotY);
+
+    list.forEach((art, i) => {
+      const u = list.length > 1 ? -usable / 2 + step * i : 0;
+      const group = makeFrame(art, boxW, boxH);
+      group.position.set(cx + u * cs + sn * 0.05, frameY, cz - u * sn + cs * 0.05);
+      group.rotation.y = rotY;
+      scene.add(group);
+    });
+  }
+
+  function makeSign(text, w, h, bg, fg) {
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = Math.round(512 * h / w);
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.fillStyle = fg;
+    ctx.font = '600 ' + Math.round(c.height * 0.46) + 'px Georgia, serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, c.width / 2, c.height / 2, c.width * 0.9);
+    const tex = new THREE.CanvasTexture(c);
+    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    return new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: tex }));
+  }
+
+  // the second room: school / marketing / publication projects
+  function buildProjectsRoom() {
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0xcfd6c9, roughness: 0.95 });
+    const floorMat = new THREE.MeshStandardMaterial({ map: makeFloorTexture('#8e8a80', PW / 3, PD / 3), roughness: 0.8 });
+    const ceilMat = new THREE.MeshStandardMaterial({ color: 0xd8d4c9, roughness: 1 });
+
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(PW, PD), floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.set(0, 0, PZ_MID);
+    scene.add(floor);
+
+    const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(PW, PD), ceilMat);
+    ceiling.rotation.x = Math.PI / 2;
+    ceiling.position.set(0, RH, PZ_MID);
+    scene.add(ceiling);
+
+    const backWall = new THREE.Mesh(new THREE.PlaneGeometry(PW, RH), wallMat);
+    backWall.position.set(0, RH / 2, PZ_BACK);
+    scene.add(backWall);
+
+    const westWall = new THREE.Mesh(new THREE.PlaneGeometry(PD, RH), wallMat);
+    westWall.position.set(-PW / 2, RH / 2, PZ_MID);
+    westWall.rotation.y = Math.PI / 2;
+    scene.add(westWall);
+
+    const eastWall = new THREE.Mesh(new THREE.PlaneGeometry(PD, RH), wallMat);
+    eastWall.position.set(PW / 2, RH / 2, PZ_MID);
+    eastWall.rotation.y = -Math.PI / 2;
+    scene.add(eastWall);
+
+    // this side of the shared wall (faces back toward the doorway), with the opening cut out
+    const sideW = (PW - DOOR_W) / 2;
+    [-1, 1].forEach((sd) => {
+      const part = new THREE.Mesh(new THREE.PlaneGeometry(sideW, RH), wallMat);
+      part.position.set(sd * (DOOR_W / 2 + sideW / 2), RH / 2, -RD / 2 - 0.02);
+      part.rotation.y = Math.PI;
+      scene.add(part);
+    });
+    const lintel = new THREE.Mesh(new THREE.PlaneGeometry(DOOR_W, RH - DOOR_H), wallMat);
+    lintel.position.set(0, DOOR_H + (RH - DOOR_H) / 2, -RD / 2 - 0.02);
+    lintel.rotation.y = Math.PI;
+    scene.add(lintel);
+
+    const trimMat = new THREE.MeshStandardMaterial({ color: 0xb4b9ad, roughness: 0.9 });
+    [
+      [-(DOOR_W / 2 + sideW / 2), -RD / 2 - 0.02, sideW, Math.PI],
+      [DOOR_W / 2 + sideW / 2, -RD / 2 - 0.02, sideW, Math.PI],
+      [0, PZ_BACK, PW, 0],
+      [-PW / 2, PZ_MID, PD, Math.PI / 2],
+      [PW / 2, PZ_MID, PD, -Math.PI / 2]
+    ].forEach(([x, z, len, ry]) => {
+      const trim = new THREE.Mesh(new THREE.BoxGeometry(len, 0.15, 0.05), trimMat);
+      trim.position.set(x, 0.08, z);
+      trim.rotation.y = ry;
+      scene.add(trim);
+    });
+
+    // signs: one above the doorway on each side, one title on the far wall
+    const signIn = makeSign('PROJECTS', 2.6, 0.62, '#eeeae2', '#2a2620');
+    signIn.position.set(0, 4.85, -RD / 2 + 0.04);
+    scene.add(signIn);
+
+    const signBack = makeSign('SKETCHBOOK', 2.6, 0.62, '#eeeae2', '#2a2620');
+    signBack.position.set(0, 4.85, -RD / 2 - 0.05);
+    signBack.rotation.y = Math.PI;
+    scene.add(signBack);
+
+    const title = makeSign('PROJECTS', 3.4, 0.8, '#2a2620', '#eeeae2');
+    title.position.set(0, 4.9, PZ_BACK + 0.04);
+    scene.add(title);
+
+    // lighting: fixtures are cheap, only two real lights
+    const fixMat = new THREE.MeshStandardMaterial({ color: 0x161412, emissive: 0xfff1d6, emissiveIntensity: 0.7 });
+    [-6, 0, 6].forEach((x) => {
+      const fix = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, 0.25), fixMat);
+      fix.position.set(x, RH - 0.1, PZ_MID);
+      scene.add(fix);
+    });
+    [-6, 6].forEach((x) => {
+      const pl = new THREE.PointLight(0xfff1d6, 0.45, 14);
+      pl.position.set(x, RH - 0.35, PZ_MID);
+      scene.add(pl);
+    });
+
+    // furniture: a small rug, a bench in the middle, plants in the corners
+    const rug = new THREE.Mesh(
+      new THREE.PlaneGeometry(4.2, 2.4),
+      new THREE.MeshStandardMaterial({ color: 0x56604f, roughness: 1 })
+    );
+    rug.rotation.x = -Math.PI / 2;
+    rug.position.set(0, 0.011, PZ_MID);
+    scene.add(rug);
+    if (addBench) addBench(0, PZ_MID);
+    if (addPlant) {
+      addPlant(-PW / 2 + 1.2, PZ_BACK + 1.2);
+      addPlant(PW / 2 - 1.2, PZ_BACK + 1.2);
+      addPlant(-PW / 2 + 1.2, -RD / 2 - 1.2);
+      addPlant(PW / 2 - 1.2, -RD / 2 - 1.2);
+    }
+
+    // hang the projects: half on the far wall, the rest split between the side walls
+    const n = projects.length;
+    const nFar = Math.ceil(n / 2);
+    const nWest = Math.ceil((n - nFar) / 2);
+    placeAlongWall(projects.slice(0, nFar), 0, PZ_BACK, 0, PW);
+    placeAlongWall(projects.slice(nFar, nFar + nWest), -PW / 2, PZ_MID, Math.PI / 2, PD);
+    placeAlongWall(projects.slice(nFar + nWest), PW / 2, PZ_MID, -Math.PI / 2, PD);
   }
 
   // ---- movement + look ----
@@ -875,6 +1138,15 @@
     btn.addEventListener('pointerleave', () => set(false));
   });
 
+  // where a visitor may stand: the main room, the projects room, and the doorway joining them
+  function walkable(x, z) {
+    const m = WALL_MARGIN;
+    const inMain = Math.abs(x) <= RW / 2 - m && Math.abs(z) <= RD / 2 - m;
+    const inProjects = Math.abs(x) <= PW / 2 - m && z <= -RD / 2 - m && z >= PZ_BACK + m;
+    const inDoor = Math.abs(x) <= DOOR_W / 2 - 0.4 && z <= -RD / 2 + m && z >= -RD / 2 - m;
+    return inMain || inProjects || inDoor;
+  }
+
   function updateMovement(dt) {
     if (!sitting) {
       const speed = 4.2 * dt;
@@ -887,10 +1159,11 @@
       if (keys.left) { mx -= rx; mz -= rz; }
       const len = Math.hypot(mx, mz);
       if (len > 0) {
-        pos.x += (mx / len) * speed;
-        pos.z += (mz / len) * speed;
-        pos.x = Math.max(-RW / 2 + WALL_MARGIN, Math.min(RW / 2 - WALL_MARGIN, pos.x));
-        pos.z = Math.max(-RD / 2 + WALL_MARGIN, Math.min(RD / 2 - WALL_MARGIN, pos.z));
+        const nx = pos.x + (mx / len) * speed;
+        const nz = pos.z + (mz / len) * speed;
+        if (walkable(nx, nz)) { pos.x = nx; pos.z = nz; }
+        else if (walkable(nx, pos.z)) pos.x = nx;
+        else if (walkable(pos.x, nz)) pos.z = nz;
       }
     }
     if (avatarGroup) {
@@ -939,6 +1212,14 @@
     document.getElementById('modalTitle').textContent = art.title;
     document.getElementById('modalMeta').textContent = [art.medium, art.year].filter(Boolean).join(' — ');
     document.getElementById('modalNote').textContent = art.note || '';
+    const link = document.getElementById('modalLink');
+    if (art.link) {
+      link.href = art.link;
+      link.textContent = art.linkText || 'View full project';
+      link.style.display = 'inline-block';
+    } else {
+      link.style.display = 'none';
+    }
     modal.classList.add('open');
   }
   document.getElementById('modalClose').addEventListener('click', () => modal.classList.remove('open'));
